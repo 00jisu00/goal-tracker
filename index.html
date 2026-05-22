@@ -225,10 +225,10 @@ textarea.linput:focus{outline:none;border-color:var(--brand-mid);}
 hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 
 /* user menu */
-.user-menu{position:fixed;top:50px;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:.5rem;z-index:50;min-width:180px;display:none;}
+.user-menu{position:fixed;top:50px;right:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:.5rem;z-index:200;min-width:200px;display:none;}
 .user-menu.open{display:block;}
-.user-menu-item{padding:10px 12px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;border-radius:var(--radius-sm);transition:background .15s;display:flex;align-items:center;gap:8px;}
-.user-menu-item:hover{background:var(--surface2);}
+.user-menu-item{padding:12px 14px;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;border-radius:var(--radius-sm);transition:background .15s;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;}
+.user-menu-item:hover,.user-menu-item:active{background:var(--surface2);}
 .user-menu-item.danger{color:#e24b4a;}
 </style>
 </head>
@@ -253,7 +253,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 <div id="app" style="display:none;flex-direction:column;min-height:100vh;">
   <div class="top-bar">
     <span class="top-bar-title">목표 트래커</span>
-    <button class="user-btn" onclick="toggleUserMenu()">
+    <button class="user-btn" onclick="toggleUserMenu(event)">
       <div class="user-avatar" id="user-avatar">?</div>
       <span id="user-name">로딩중</span>
     </button>
@@ -346,10 +346,13 @@ async function signInWithGoogle() {
   if (error) alert('로그인 실패: ' + error.message);
 }
 async function signOut() {
-  await sb.auth.signOut();
-  location.reload();
+  try {
+    await sb.auth.signOut();
+  } catch(e) {}
+  location.href = location.origin;
 }
-function toggleUserMenu() {
+function toggleUserMenu(e) {
+  if(e) e.stopPropagation();
   document.getElementById('user-menu').classList.toggle('open');
 }
 document.addEventListener('click', e => {
