@@ -337,7 +337,7 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY, {
     storage: window.localStorage,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'implicit'
+    flowType: 'pkce'
   }
 });
 
@@ -345,20 +345,20 @@ let currentUser = null;
 
 // ── AUTH ──
 async function signInWithGoogle() {
+  // 현재 URL을 redirectTo로 사용 (PWA/브라우저 모두 대응)
+  const currentUrl = window.location.href.split('?')[0].split('#')[0];
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'https://goal-tracker-seven-zeta.vercel.app',
+      redirectTo: currentUrl,
       queryParams: { prompt: 'select_account' }
     }
   });
   if (error) alert('로그인 실패: ' + error.message);
 }
 async function signOut() {
-  try {
-    await sb.auth.signOut();
-  } catch(e) {}
-  location.href = location.origin;
+  try { await sb.auth.signOut(); } catch(e) {}
+  window.location.replace(window.location.origin);
 }
 function toggleUserMenu(e) {
   if(e) e.stopPropagation();
@@ -368,6 +368,26 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.user-btn') && !e.target.closest('.user-menu'))
     document.getElementById('user-menu').classList.remove('open');
 });
+
+// ── 세션 URL 처리 (PWA redirect 후 토큰 파싱) ──
+async function handleAuthRedirect() {
+  // URL hash에 access_token이 있으면 세션 설정
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const { data, error } = await sb.auth.getSession();
+    if (data?.session) {
+      // 토큰을 URL에서 제거
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+  // URL search params에 code가 있는 경우 (PKCE flow)
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('code')) {
+    await sb.auth.exchangeCodeForSession(params.get('code'));
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+handleAuthRedirect();
 
 // ── AUTH STATE ──
 sb.auth.onAuthStateChange(async (event, session) => {
