@@ -336,39 +336,14 @@ let currentUser = null;
 
 // ── AUTH ──
 async function signInWithGoogle() {
-  // PWA(홈 화면 앱) 환경에서는 redirect 방식이 동작하지 않아 popup 사용
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-
-  if (isPWA) {
-    // PWA: 새 창으로 OAuth 진행 후 돌아오기
-    const { data, error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'https://goal-tracker-seven-zeta.vercel.app',
-        skipBrowserRedirect: true,
-      }
-    });
-    if (error) { alert('로그인 실패: ' + error.message); return; }
-    if (data?.url) {
-      const popup = window.open(data.url, '_blank', 'width=500,height=600');
-      // 팝업이 닫히면 세션 체크
-      const timer = setInterval(async () => {
-        if (popup && popup.closed) {
-          clearInterval(timer);
-          const { data: session } = await sb.auth.getSession();
-          if (session?.session) location.reload();
-        }
-      }, 500);
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: 'https://goal-tracker-seven-zeta.vercel.app',
+      queryParams: { prompt: 'select_account' }
     }
-  } else {
-    // 일반 브라우저: 기존 redirect 방식
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    });
-    if (error) alert('로그인 실패: ' + error.message);
-  }
+  });
+  if (error) alert('로그인 실패: ' + error.message);
 }
 async function signOut() {
   await sb.auth.signOut();
