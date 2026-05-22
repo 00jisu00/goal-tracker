@@ -330,7 +330,16 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 // ── SUPABASE INIT ──
 const SUPA_URL = 'https://fiikawlccmydcafjylnm.supabase.co';
 const SUPA_KEY = 'sb_publishable_27pcngDMpXY5VuUwIu995w_H87iYXhC';
-const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY, {
+  auth: {
+    persistSession: true,
+    storageKey: 'goal-tracker-auth',
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'implicit'
+  }
+});
 
 let currentUser = null;
 
