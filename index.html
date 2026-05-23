@@ -336,16 +336,33 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY, {
     storageKey: 'goal-tracker-auth',
     storage: window.localStorage,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false,
     flowType: 'pkce'
   }
 });
 
 let currentUser = null;
 
+// ── AUTH UI 헬퍼 ──
+async function showApp(session) {
+  currentUser = session.user;
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '사용자';
+  const avatar = session.user.user_metadata?.avatar_url;
+  document.getElementById('auth-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+  app.style.flexDirection = 'column';
+  document.getElementById('user-name').textContent = name.split(' ')[0];
+  document.getElementById('user-email-item').querySelector('span').textContent = session.user.email;
+  const avatarEl = document.getElementById('user-avatar');
+  if (avatar) avatarEl.innerHTML = `<img src="${avatar}" alt="avatar"/>`;
+  else avatarEl.textContent = name[0].toUpperCase();
+  await loadAllData();
+  renderCheck();
+}
+
 // ── AUTH ──
 async function signInWithGoogle() {
-  // 현재 URL을 redirectTo로 사용 (PWA/브라우저 모두 대응)
   const currentUrl = window.location.href.split('?')[0].split('#')[0];
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
@@ -369,13 +386,16 @@ document.addEventListener('click', e => {
     document.getElementById('user-menu').classList.remove('open');
 });
 
-// ── 세션 URL 처리 (PWA redirect 후 토큰 파싱) ──
+// ── 세션 URL 처리: OAuth redirect 후 code를 명시적으로 교환 ──
+// detectSessionInUrl: false 이므로 SDK가 자동 처리하지 않음 → 직접 교환
 async function handleAuthRedirect() {
-  // detectSessionInUrl: true 로 SDK가 자동으로 code 교환 처리
-  // 중복 교환 방지: URL 파라미터만 정리
-  const hasCode = new URLSearchParams(window.location.search).has('code');
-  const hasToken = window.location.hash.includes('access_token');
-  if (hasCode || hasToken) {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    const { error } = await sb.auth.exchangeCodeForSession(code);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (error) console.warn('Auth code exchange error:', error.message);
+  } else if (window.location.hash.includes('access_token')) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
@@ -384,24 +404,19 @@ handleAuthRedirect();
 // ── AUTH STATE ──
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
-    currentUser = session.user;
-    document.getElementById('auth-screen').style.display = 'none';
-    const app = document.getElementById('app');
-    app.style.display = 'flex';
-    app.style.flexDirection = 'column';
-    // Set user info
-    const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '사용자';
-    const avatar = session.user.user_metadata?.avatar_url;
-    document.getElementById('user-name').textContent = name.split(' ')[0];
-    document.getElementById('user-email-item').querySelector('span').textContent = session.user.email;
-    const avatarEl = document.getElementById('user-avatar');
-    if (avatar) avatarEl.innerHTML = `<img src="${avatar}" alt="avatar"/>`;
-    else avatarEl.textContent = name[0].toUpperCase();
-    await loadAllData();
-    renderCheck();
+    if (!currentUser) await showApp(session);
   } else {
+    currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
+  }
+});
+
+// ── Android PWA: Chrome에서 OAuth 처리 후 PWA 복귀 시 세션 감지 ──
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && !currentUser) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) await showApp(session);
   }
 });
 
