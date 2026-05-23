@@ -939,11 +939,9 @@ async function saveModal(){
   try {
   if(type==='year'){
     const text=document.getElementById('mi-text').value.trim();if(!text)return;
-    const {data:rows,error}=await sb.from('year_goals').insert({user_id:uid,text,note:document.getElementById('mi-note').value.trim(),done:false}).select('*');
+    const {error}=await sb.from('year_goals').insert({user_id:uid,text,note:document.getElementById('mi-note').value.trim(),done:false});
     if(error){alert('저장 실패: '+error.message);return;}
-    const data=rows?.[0];
-    if(data)yearGoals.push({id:data.id,text:data.text,note:data.note,done:false});
-    closeModal();renderYear();
+    closeModal();await loadAllData();renderYear();
   } else if(type==='editYear'){
     const g=yearGoals.find(x=>x.id===p1);if(!g)return;
     g.text=document.getElementById('mi-text').value.trim()||g.text;g.note=document.getElementById('mi-note').value.trim();
@@ -957,17 +955,12 @@ async function saveModal(){
     const repeatUnit=document.querySelector('#unitopts .opt.sel')?.dataset.val||'week';
     const repeatCount=repeatUnit==='day'?1:(mCtx.repeatCount||3);
     const sort=((monthlyData[selMonth]||[]).length);
-    const {data:rows,error}=await sb.from('monthly_goals').insert({
+    const {error}=await sb.from('monthly_goals').insert({
       user_id:uid,month_key:selMonth,name,goal_type:goalType,log_type:logType,
       color:mCtx.color,repeat_unit:repeatUnit,repeat_count:repeatCount,sort_order:sort
-    }).select('*');
+    });
     if(error){alert('저장 실패: '+error.message);return;}
-    const data=rows?.[0];
-    if(data){
-      if(!monthlyData[selMonth])monthlyData[selMonth]=[];
-      monthlyData[selMonth].push({id:data.id,name,goalType,logType,color:mCtx.color,repeatUnit,repeatCount,_collapsed:false,checks:{},logs:[],weeks:[]});
-    }
-    closeModal();renderMonthly();
+    closeModal();await loadAllData();renderMonthly();
   } else if(type==='editRepeat'){
     const mg=getMg(selMonth,p1);if(!mg)return;
     mg.name=document.getElementById('mi-name').value.trim()||mg.name;
@@ -988,17 +981,15 @@ async function saveModal(){
     const note=document.getElementById('mi-wnote')?.value.trim()||'';
     const mg=getMg(selMonth,p1);if(!mg)return;
     const sort=(mg.weeks||[]).length;
-    const {data:rows,error}=await sb.from('weekly_goals').insert({user_id:uid,monthly_goal_id:mg.id,name,note,sort_order:sort}).select('*');
+    const {error}=await sb.from('weekly_goals').insert({user_id:uid,monthly_goal_id:mg.id,name,note,sort_order:sort});
     if(error){alert('저장 실패: '+error.message);return;}
-    const data=rows?.[0];
-    if(data){if(!mg.weeks)mg.weeks=[];mg.weeks.push({id:data.id,name,note,checks:{},logs:[],_planOpen:false});}
-    closeModal();renderMonthly();
+    closeModal();await loadAllData();renderMonthly();
   } else if(type==='editWeek'){
     const mg=getMg(selMonth,p1);if(!mg)return;const w=(mg.weeks||[]).find(x=>x.id===p2);if(!w)return;
     w.name=document.getElementById('mi-wname').value.trim()||w.name;w.note=document.getElementById('mi-wnote')?.value.trim()||'';
     const {error}=await sb.from('weekly_goals').update({name:w.name,note:w.note}).eq('id',p2);
     if(error){alert('저장 실패: '+error.message);return;}
-    closeModal();renderMonthly();
+    closeModal();await loadAllData();renderMonthly();
   }
   } catch(e) { alert('오류: '+e.message); }
 }
