@@ -852,9 +852,9 @@ function calNav(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calM
 
 // ── COLOR PALETTE ──
 function colorPaletteHtml(sel){
-  return `<div class="color-palette" id="color-palette">${GOAL_COLORS.map(c=>`<div class="color-swatch${c===sel?' sel':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`).join('')}</div>`;
+  return `<div class="color-palette" id="color-palette">${GOAL_COLORS.map(c=>`<div class="color-swatch${c===sel?' sel':''}" style="background:${c}" data-color="${c}" onclick="selectColor('${c}')"></div>`).join('')}</div>`;
 }
-function selectColor(c){mCtx.color=c;document.querySelectorAll('.color-swatch').forEach(s=>{s.classList.toggle('sel',s.style.background===c||s.style.backgroundColor===c);});}
+function selectColor(c){mCtx.color=c;document.querySelectorAll('.color-swatch').forEach(s=>{s.classList.toggle('sel',s.dataset.color===c);});}
 
 // ── MODAL ──
 function openModal(type,p1,p2){
@@ -922,13 +922,15 @@ async function saveModal(){
   const{type,p1,p2}=mCtx;const uid=currentUser?.id;if(!uid)return;
   if(type==='year'){
     const text=document.getElementById('mi-text').value.trim();if(!text)return;
-    const {data}=await sb.from('year_goals').insert({user_id:uid,text,note:document.getElementById('mi-note').value.trim(),done:false}).select().single();
+    const {data,error}=await sb.from('year_goals').insert({user_id:uid,text,note:document.getElementById('mi-note').value.trim(),done:false}).select().single();
+    if(error){alert('저장 실패: '+error.message);return;}
     if(data)yearGoals.push({id:data.id,text:data.text,note:data.note,done:false});
     closeModal();renderYear();
   } else if(type==='editYear'){
     const g=yearGoals.find(x=>x.id===p1);if(!g)return;
     g.text=document.getElementById('mi-text').value.trim()||g.text;g.note=document.getElementById('mi-note').value.trim();
-    await sb.from('year_goals').update({text:g.text,note:g.note}).eq('id',p1);
+    const {error}=await sb.from('year_goals').update({text:g.text,note:g.note}).eq('id',p1);
+    if(error){alert('저장 실패: '+error.message);return;}
     closeModal();renderYear();
   } else if(type==='monthly'){
     const name=document.getElementById('mi-name').value.trim();if(!name)return;
@@ -937,10 +939,11 @@ async function saveModal(){
     const repeatUnit=document.querySelector('#unitopts .opt.sel')?.dataset.val||'week';
     const repeatCount=repeatUnit==='day'?1:(mCtx.repeatCount||3);
     const sort=((monthlyData[selMonth]||[]).length);
-    const {data}=await sb.from('monthly_goals').insert({
+    const {data,error}=await sb.from('monthly_goals').insert({
       user_id:uid,month_key:selMonth,name,goal_type:goalType,log_type:logType,
       color:mCtx.color,repeat_unit:repeatUnit,repeat_count:repeatCount,sort_order:sort
     }).select().single();
+    if(error){alert('저장 실패: '+error.message);return;}
     if(data){
       if(!monthlyData[selMonth])monthlyData[selMonth]=[];
       monthlyData[selMonth].push({id:data.id,name,goalType,logType,color:mCtx.color,repeatUnit,repeatCount,_collapsed:false,checks:{},logs:[],weeks:[]});
@@ -951,26 +954,30 @@ async function saveModal(){
     mg.name=document.getElementById('mi-name').value.trim()||mg.name;
     mg.repeatUnit=document.querySelector('#unitopts .opt.sel')?.dataset.val||'week';
     mg.repeatCount=mg.repeatUnit==='day'?1:(mCtx.repeatCount||3);mg.color=mCtx.color;
-    await sb.from('monthly_goals').update({name:mg.name,repeat_unit:mg.repeatUnit,repeat_count:mg.repeatCount,color:mg.color}).eq('id',p1);
+    const {error}=await sb.from('monthly_goals').update({name:mg.name,repeat_unit:mg.repeatUnit,repeat_count:mg.repeatCount,color:mg.color}).eq('id',p1);
+    if(error){alert('저장 실패: '+error.message);return;}
     closeModal();renderMonthly();
   } else if(type==='editProject'){
     const mg=getMg(selMonth,p1);if(!mg)return;
     mg.name=document.getElementById('mi-name').value.trim()||mg.name;
     mg.logType=document.querySelector('#logopts .opt.sel')?.dataset.val||'none';mg.color=mCtx.color;
-    await sb.from('monthly_goals').update({name:mg.name,log_type:mg.logType,color:mg.color}).eq('id',p1);
+    const {error}=await sb.from('monthly_goals').update({name:mg.name,log_type:mg.logType,color:mg.color}).eq('id',p1);
+    if(error){alert('저장 실패: '+error.message);return;}
     closeModal();renderMonthly();
   } else if(type==='week'){
     const name=document.getElementById('mi-wname').value.trim();if(!name)return;
     const note=document.getElementById('mi-wnote')?.value.trim()||'';
     const mg=getMg(selMonth,p1);if(!mg)return;
     const sort=(mg.weeks||[]).length;
-    const {data}=await sb.from('weekly_goals').insert({user_id:uid,monthly_goal_id:mg.id,name,note,sort_order:sort}).select().single();
+    const {data,error}=await sb.from('weekly_goals').insert({user_id:uid,monthly_goal_id:mg.id,name,note,sort_order:sort}).select().single();
+    if(error){alert('저장 실패: '+error.message);return;}
     if(data){if(!mg.weeks)mg.weeks=[];mg.weeks.push({id:data.id,name,note,checks:{},logs:[],_planOpen:false});}
     closeModal();renderMonthly();
   } else if(type==='editWeek'){
     const mg=getMg(selMonth,p1);if(!mg)return;const w=(mg.weeks||[]).find(x=>x.id===p2);if(!w)return;
     w.name=document.getElementById('mi-wname').value.trim()||w.name;w.note=document.getElementById('mi-wnote')?.value.trim()||'';
-    await sb.from('weekly_goals').update({name:w.name,note:w.note}).eq('id',p2);
+    const {error}=await sb.from('weekly_goals').update({name:w.name,note:w.note}).eq('id',p2);
+    if(error){alert('저장 실패: '+error.message);return;}
     closeModal();renderMonthly();
   }
 }
