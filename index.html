@@ -371,19 +371,11 @@ document.addEventListener('click', e => {
 
 // ── 세션 URL 처리 (PWA redirect 후 토큰 파싱) ──
 async function handleAuthRedirect() {
-  // URL hash에 access_token이 있으면 세션 설정
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    const { data, error } = await sb.auth.getSession();
-    if (data?.session) {
-      // 토큰을 URL에서 제거
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }
-  // URL search params에 code가 있는 경우 (PKCE flow)
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('code')) {
-    await sb.auth.exchangeCodeForSession(params.get('code'));
+  // detectSessionInUrl: true 로 SDK가 자동으로 code 교환 처리
+  // 중복 교환 방지: URL 파라미터만 정리
+  const hasCode = new URLSearchParams(window.location.search).has('code');
+  const hasToken = window.location.hash.includes('access_token');
+  if (hasCode || hasToken) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }

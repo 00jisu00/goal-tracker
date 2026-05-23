@@ -3,6 +3,7 @@
   "short_name": "목표",
   "description": "나만의 목표 달성 트래커",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f8f8f7",
   "theme_color": "#17437d",
