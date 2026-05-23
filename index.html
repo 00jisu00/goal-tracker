@@ -433,6 +433,12 @@ async function loadAllData() {
     sb.from('goal_checks').select('*').eq('user_id', uid),
     sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false })
   ]);
+  if (r1.error || r2.error || r3.error) {
+    const err = r1.error || r2.error || r3.error;
+    if (err.message && err.message.includes('JWT')) { hideApp(); return; }
+    alert('데이터 로드 실패: ' + err.message);
+    return;
+  }
   const yg = r1.data || [], mg = r2.data || [], wg = r3.data || [], chk = r4.data || [], logs = r5.data || [];
   yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
   monthlyData = {};
@@ -885,11 +891,14 @@ function onBackdropClick(e) { if (e.target === document.getElementById('modal'))
 
 async function saveModal() {
   const { type, p1, p2 } = mCtx;
-  const uid = currentUser?.id;
-  if (!uid) { alert('로그인이 필요합니다.'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { hideApp(); return; }
+  const uid = session.user.id;
+  currentUser = session.user;
   try {
     if (type === 'year') {
-      const text = document.getElementById('mi-text').value.trim(); if (!text) return;
+      const text = document.getElementById('mi-text').value.trim();
+      if (!text) { alert('목표 내용을 입력해주세요.'); return; }
       const note = document.getElementById('mi-note').value.trim();
       const { error } = await sb.from('year_goals').insert({ user_id: uid, text, note, done: false });
       if (error) { alert('저장 실패: ' + error.message); return; }
@@ -902,7 +911,8 @@ async function saveModal() {
       if (error) { alert('저장 실패: ' + error.message); return; }
       closeModal(); renderYear();
     } else if (type === 'monthly') {
-      const name = document.getElementById('mi-name').value.trim(); if (!name) return;
+      const name = document.getElementById('mi-name').value.trim();
+      if (!name) { alert('목표 이름을 입력해주세요.'); return; }
       const goalType = document.querySelector('#typeopts .opt.sel')?.dataset.val || 'repeat';
       const logType = document.querySelector('#logopts .opt.sel')?.dataset.val || 'none';
       const repeatUnit = document.querySelector('#unitopts .opt.sel')?.dataset.val || 'week';
@@ -929,7 +939,8 @@ async function saveModal() {
       if (error) { alert('저장 실패: ' + error.message); return; }
       closeModal(); renderMonthly();
     } else if (type === 'week') {
-      const name = document.getElementById('mi-wname').value.trim(); if (!name) return;
+      const name = document.getElementById('mi-wname').value.trim();
+      if (!name) { alert('세부 목표 이름을 입력해주세요.'); return; }
       const note = document.getElementById('mi-wnote')?.value.trim() || '';
       const mg = getMg(selMonth, p1); if (!mg) return;
       const { error } = await sb.from('weekly_goals').insert({ user_id: uid, monthly_goal_id: mg.id, name, note, sort_order: (mg.weeks || []).length });
