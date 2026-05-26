@@ -431,11 +431,11 @@ async function loadAllData() {
   if (!currentUser) return;
   const uid = currentUser.id;
   const [r1, r2, r3, r4, r5] = await Promise.all([
-    sb.from('year_goals').select('*').eq('user_id', uid).order('created_at'),
-    sb.from('monthly_goals').select('*').eq('user_id', uid).order('sort_order'),
-    sb.from('weekly_goals').select('*').eq('user_id', uid).order('sort_order'),
-    sb.from('goal_checks').select('*').eq('user_id', uid),
-    sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false })
+    sbCall(sb.from('year_goals').select('*').eq('user_id', uid).order('created_at')),
+    sbCall(sb.from('monthly_goals').select('*').eq('user_id', uid).order('sort_order')),
+    sbCall(sb.from('weekly_goals').select('*').eq('user_id', uid).order('sort_order')),
+    sbCall(sb.from('goal_checks').select('*').eq('user_id', uid)),
+    sbCall(sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false }))
   ]);
   const yg = r1.data || [], mg = r2.data || [], wg = r3.data || [], chk = r4.data || [], logs = r5.data || [];
   yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
@@ -906,10 +906,17 @@ function setSaveBtn(loading) {
 }
 
 async function sbCall(promise) {
-  return Promise.race([
-    promise,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('요청 시간 초과 — 로그아웃 후 다시 로그인해주세요.')), 8000))
-  ]);
+  const timeout = new Promise(resolve =>
+    setTimeout(() => resolve({ data: null, error: { message: '세션이 만료되었습니다. 자동으로 로그아웃됩니다.' } }), 8000)
+  );
+  const result = await Promise.race([promise, timeout]);
+  if (result?.error) {
+    const msg = (result.error.message || '').toLowerCase();
+    const isAuthErr = msg.includes('jwt') || msg.includes('session') || msg.includes('token') ||
+      msg.includes('만료') || msg.includes('unauthorized') || result.error.status === 401;
+    if (isAuthErr) setTimeout(doSignOut, 1500);
+  }
+  return result;
 }
 
 async function saveModal() {
