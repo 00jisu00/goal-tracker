@@ -433,12 +433,6 @@ async function loadAllData() {
     sb.from('goal_checks').select('*').eq('user_id', uid),
     sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false })
   ]);
-  if (r1.error || r2.error || r3.error) {
-    const err = r1.error || r2.error || r3.error;
-    if (err.message && err.message.includes('JWT')) { hideApp(); return; }
-    alert('데이터 로드 실패: ' + err.message);
-    return;
-  }
   const yg = r1.data || [], mg = r2.data || [], wg = r3.data || [], chk = r4.data || [], logs = r5.data || [];
   yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
   monthlyData = {};
@@ -891,10 +885,8 @@ function onBackdropClick(e) { if (e.target === document.getElementById('modal'))
 
 async function saveModal() {
   const { type, p1, p2 } = mCtx;
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { hideApp(); return; }
-  const uid = session.user.id;
-  currentUser = session.user;
+  const uid = currentUser?.id;
+  if (!uid) { alert('로그인이 필요합니다.'); return; }
   try {
     if (type === 'year') {
       const text = document.getElementById('mi-text').value.trim();
