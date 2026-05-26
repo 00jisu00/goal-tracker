@@ -907,13 +907,16 @@ function setSaveBtn(loading) {
 
 async function sbCall(promise) {
   const timeout = new Promise(resolve =>
-    setTimeout(() => resolve({ data: null, error: { message: '세션이 만료되었습니다. 자동으로 로그아웃됩니다.' } }), 8000)
+    setTimeout(() => resolve({ data: null, error: { message: '네트워크 응답 없음. 인터넷 연결을 확인해주세요.', code: 'TIMEOUT' } }), 15000)
   );
   const result = await Promise.race([promise, timeout]);
   if (result?.error) {
-    const msg = (result.error.message || '').toLowerCase();
-    const isAuthErr = msg.includes('jwt') || msg.includes('session') || msg.includes('token') ||
-      msg.includes('만료') || msg.includes('unauthorized') || result.error.status === 401;
+    const err = result.error;
+    if (err.code === 'TIMEOUT') return result;
+    const msg = (err.message || '').toLowerCase();
+    const isAuthErr = err.status === 401 || msg.includes('jwt expired') ||
+      msg.includes('invalid token') || msg.includes('token is expired') ||
+      msg.includes('refresh_token_not_found') || err.code === 'PGRST301';
     if (isAuthErr) setTimeout(doSignOut, 1500);
   }
   return result;
