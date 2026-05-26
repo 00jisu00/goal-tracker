@@ -901,6 +901,13 @@ function setSaveBtn(loading) {
   btn.textContent = loading ? '저장 중...' : (mCtx.type === 'monthly' || mCtx.type === 'year' || mCtx.type === 'week' ? '추가하기' : '저장하기');
 }
 
+async function sbCall(promise) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('요청 시간 초과 — 로그아웃 후 다시 로그인해주세요.')), 8000))
+  ]);
+}
+
 async function saveModal() {
   const { type, p1, p2 } = mCtx;
   const uid = currentUser?.id;
@@ -911,14 +918,14 @@ async function saveModal() {
       const text = document.getElementById('mi-text').value.trim();
       if (!text) { showModalErr('목표 내용을 입력해주세요.'); setSaveBtn(false); return; }
       const note = document.getElementById('mi-note').value.trim();
-      const { error } = await sb.from('year_goals').insert({ user_id: uid, text, note, done: false });
+      const { error } = await sbCall(sb.from('year_goals').insert({ user_id: uid, text, note, done: false }));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderYear();
     } else if (type === 'editYear') {
       const g = yearGoals.find(x => x.id === p1); if (!g) return;
       g.text = document.getElementById('mi-text').value.trim() || g.text;
       g.note = document.getElementById('mi-note').value.trim();
-      const { error } = await sb.from('year_goals').update({ text: g.text, note: g.note }).eq('id', p1);
+      const { error } = await sbCall(sb.from('year_goals').update({ text: g.text, note: g.note }).eq('id', p1));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderYear();
     } else if (type === 'monthly') {
@@ -929,7 +936,7 @@ async function saveModal() {
       const repeatUnit = document.querySelector('#unitopts .opt.sel')?.dataset.val || 'week';
       const repeatCount = repeatUnit === 'day' ? 1 : (mCtx.repeatCount || 3);
       const sort = (monthlyData[selMonth] || []).length;
-      const { error } = await sb.from('monthly_goals').insert({ user_id: uid, month_key: selMonth, name, goal_type: goalType, log_type: logType, color: mCtx.color, repeat_unit: repeatUnit, repeat_count: repeatCount, sort_order: sort });
+      const { error } = await sbCall(sb.from('monthly_goals').insert({ user_id: uid, month_key: selMonth, name, goal_type: goalType, log_type: logType, color: mCtx.color, repeat_unit: repeatUnit, repeat_count: repeatCount, sort_order: sort }));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     } else if (type === 'editRepeat') {
@@ -938,7 +945,7 @@ async function saveModal() {
       mg.repeatUnit = document.querySelector('#unitopts .opt.sel')?.dataset.val || 'week';
       mg.repeatCount = mg.repeatUnit === 'day' ? 1 : (mCtx.repeatCount || 3);
       mg.color = mCtx.color;
-      const { error } = await sb.from('monthly_goals').update({ name: mg.name, repeat_unit: mg.repeatUnit, repeat_count: mg.repeatCount, color: mg.color }).eq('id', p1);
+      const { error } = await sbCall(sb.from('monthly_goals').update({ name: mg.name, repeat_unit: mg.repeatUnit, repeat_count: mg.repeatCount, color: mg.color }).eq('id', p1));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderMonthly();
     } else if (type === 'editProject') {
@@ -946,7 +953,7 @@ async function saveModal() {
       mg.name = document.getElementById('mi-name').value.trim() || mg.name;
       mg.logType = document.querySelector('#logopts .opt.sel')?.dataset.val || 'none';
       mg.color = mCtx.color;
-      const { error } = await sb.from('monthly_goals').update({ name: mg.name, log_type: mg.logType, color: mg.color }).eq('id', p1);
+      const { error } = await sbCall(sb.from('monthly_goals').update({ name: mg.name, log_type: mg.logType, color: mg.color }).eq('id', p1));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderMonthly();
     } else if (type === 'week') {
@@ -954,7 +961,7 @@ async function saveModal() {
       if (!name) { showModalErr('세부 목표 이름을 입력해주세요.'); setSaveBtn(false); return; }
       const note = document.getElementById('mi-wnote')?.value.trim() || '';
       const mg = getMg(selMonth, p1); if (!mg) return;
-      const { error } = await sb.from('weekly_goals').insert({ user_id: uid, monthly_goal_id: mg.id, name, note, sort_order: (mg.weeks || []).length });
+      const { error } = await sbCall(sb.from('weekly_goals').insert({ user_id: uid, monthly_goal_id: mg.id, name, note, sort_order: (mg.weeks || []).length }));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     } else if (type === 'editWeek') {
@@ -962,7 +969,7 @@ async function saveModal() {
       const w = (mg.weeks || []).find(x => x.id === p2); if (!w) return;
       w.name = document.getElementById('mi-wname').value.trim() || w.name;
       w.note = document.getElementById('mi-wnote')?.value.trim() || '';
-      const { error } = await sb.from('weekly_goals').update({ name: w.name, note: w.note }).eq('id', p2);
+      const { error } = await sbCall(sb.from('weekly_goals').update({ name: w.name, note: w.note }).eq('id', p2));
       if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     }
