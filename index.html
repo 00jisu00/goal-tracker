@@ -334,7 +334,11 @@ async function doAuth() {
 document.getElementById('a-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
 document.getElementById('a-pw2').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
 
-async function doSignOut() { await sb.auth.signOut(); }
+async function doSignOut() {
+  try { await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 2000))]); } catch(e) {}
+  localStorage.removeItem('gt-auth-v2');
+  window.location.reload();
+}
 function toggleMenu(e) {
   e.stopPropagation();
   document.getElementById('user-menu').classList.toggle('open');
