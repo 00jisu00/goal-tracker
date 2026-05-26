@@ -883,35 +883,54 @@ function selOpt(el, grpId) { document.querySelectorAll('#' + grpId + ' .opt').fo
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 function onBackdropClick(e) { if (e.target === document.getElementById('modal')) closeModal(); }
 
+function showModalErr(msg) {
+  let el = document.getElementById('modal-err');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'modal-err';
+    el.style.cssText = 'background:#fee2e2;color:#b91c1c;padding:.625rem .75rem;border-radius:8px;font-size:12px;margin-bottom:.75rem;line-height:1.5;word-break:break-all;';
+    const inner = document.getElementById('modal-inner');
+    if (inner) inner.prepend(el);
+  }
+  el.textContent = msg;
+}
+function setSaveBtn(loading) {
+  const btn = document.querySelector('#modal-inner .btn-primary');
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? '저장 중...' : (mCtx.type === 'monthly' || mCtx.type === 'year' || mCtx.type === 'week' ? '추가하기' : '저장하기');
+}
+
 async function saveModal() {
   const { type, p1, p2 } = mCtx;
   const uid = currentUser?.id;
-  if (!uid) { alert('로그인이 필요합니다.'); return; }
+  if (!uid) { showModalErr('로그인이 필요합니다. 페이지를 새로고침하세요.'); return; }
+  setSaveBtn(true);
   try {
     if (type === 'year') {
       const text = document.getElementById('mi-text').value.trim();
-      if (!text) { alert('목표 내용을 입력해주세요.'); return; }
+      if (!text) { showModalErr('목표 내용을 입력해주세요.'); setSaveBtn(false); return; }
       const note = document.getElementById('mi-note').value.trim();
       const { error } = await sb.from('year_goals').insert({ user_id: uid, text, note, done: false });
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderYear();
     } else if (type === 'editYear') {
       const g = yearGoals.find(x => x.id === p1); if (!g) return;
       g.text = document.getElementById('mi-text').value.trim() || g.text;
       g.note = document.getElementById('mi-note').value.trim();
       const { error } = await sb.from('year_goals').update({ text: g.text, note: g.note }).eq('id', p1);
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderYear();
     } else if (type === 'monthly') {
       const name = document.getElementById('mi-name').value.trim();
-      if (!name) { alert('목표 이름을 입력해주세요.'); return; }
+      if (!name) { showModalErr('목표 이름을 입력해주세요.'); setSaveBtn(false); return; }
       const goalType = document.querySelector('#typeopts .opt.sel')?.dataset.val || 'repeat';
       const logType = document.querySelector('#logopts .opt.sel')?.dataset.val || 'none';
       const repeatUnit = document.querySelector('#unitopts .opt.sel')?.dataset.val || 'week';
       const repeatCount = repeatUnit === 'day' ? 1 : (mCtx.repeatCount || 3);
       const sort = (monthlyData[selMonth] || []).length;
       const { error } = await sb.from('monthly_goals').insert({ user_id: uid, month_key: selMonth, name, goal_type: goalType, log_type: logType, color: mCtx.color, repeat_unit: repeatUnit, repeat_count: repeatCount, sort_order: sort });
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     } else if (type === 'editRepeat') {
       const mg = getMg(selMonth, p1); if (!mg) return;
@@ -920,7 +939,7 @@ async function saveModal() {
       mg.repeatCount = mg.repeatUnit === 'day' ? 1 : (mCtx.repeatCount || 3);
       mg.color = mCtx.color;
       const { error } = await sb.from('monthly_goals').update({ name: mg.name, repeat_unit: mg.repeatUnit, repeat_count: mg.repeatCount, color: mg.color }).eq('id', p1);
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderMonthly();
     } else if (type === 'editProject') {
       const mg = getMg(selMonth, p1); if (!mg) return;
@@ -928,15 +947,15 @@ async function saveModal() {
       mg.logType = document.querySelector('#logopts .opt.sel')?.dataset.val || 'none';
       mg.color = mCtx.color;
       const { error } = await sb.from('monthly_goals').update({ name: mg.name, log_type: mg.logType, color: mg.color }).eq('id', p1);
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); renderMonthly();
     } else if (type === 'week') {
       const name = document.getElementById('mi-wname').value.trim();
-      if (!name) { alert('세부 목표 이름을 입력해주세요.'); return; }
+      if (!name) { showModalErr('세부 목표 이름을 입력해주세요.'); setSaveBtn(false); return; }
       const note = document.getElementById('mi-wnote')?.value.trim() || '';
       const mg = getMg(selMonth, p1); if (!mg) return;
       const { error } = await sb.from('weekly_goals').insert({ user_id: uid, monthly_goal_id: mg.id, name, note, sort_order: (mg.weeks || []).length });
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     } else if (type === 'editWeek') {
       const mg = getMg(selMonth, p1); if (!mg) return;
@@ -944,10 +963,10 @@ async function saveModal() {
       w.name = document.getElementById('mi-wname').value.trim() || w.name;
       w.note = document.getElementById('mi-wnote')?.value.trim() || '';
       const { error } = await sb.from('weekly_goals').update({ name: w.name, note: w.note }).eq('id', p2);
-      if (error) { alert('저장 실패: ' + error.message); return; }
+      if (error) { showModalErr('저장 실패: ' + error.message); setSaveBtn(false); return; }
       closeModal(); await loadAllData(); renderMonthly();
     }
-  } catch (e) { alert('오류: ' + e.message); }
+  } catch (e) { showModalErr('오류: ' + e.message); setSaveBtn(false); }
 }
 
 // ── NAV ──
