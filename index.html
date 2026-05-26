@@ -359,6 +359,9 @@ async function showApp(session) {
   await loadAllData();
   renderCheck();
   updateFab();
+  if (!yearGoals.length && !Object.keys(monthlyData).length) {
+    setTimeout(async () => { await loadAllData(); renderCurrentPage(); }, 3000);
+  }
 }
 function hideApp() {
   currentUser = null;
@@ -366,9 +369,22 @@ function hideApp() {
   document.getElementById('app').style.display = 'none';
   document.getElementById('fab').style.display = 'none';
 }
+function renderCurrentPage() {
+  if (curPage === 'year') renderYear();
+  else if (curPage === 'monthly') renderMonthly();
+  else if (curPage === 'check') renderCheck();
+  else if (curPage === 'review') renderReview();
+}
+
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session && session.user) {
-    if (!currentUser) await showApp(session);
+    if (!currentUser) {
+      await showApp(session);
+    } else if (event === 'TOKEN_REFRESHED') {
+      currentUser = session.user;
+      await loadAllData();
+      renderCurrentPage();
+    }
   } else {
     hideApp();
   }
