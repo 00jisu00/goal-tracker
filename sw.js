@@ -1,5 +1,5 @@
 // 버전을 바꾸면 캐시가 강제 갱신돼요
-const CACHE = 'goal-tracker-v3';
+const CACHE = 'goal-tracker-v4';
 
 self.addEventListener('install', e => {
   self.skipWaiting();

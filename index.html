@@ -454,29 +454,38 @@ let mCtx = { repeatCount: 3, repeatUnit: 'week', color: COLORS[0] };
 
 async function loadAllData() {
   if (!currentUser) return;
-  const uid = currentUser.id;
-  const [r1, r2, r3, r4, r5] = await Promise.all([
-    sb.from('year_goals').select('*').eq('user_id', uid).order('created_at'),
-    sb.from('monthly_goals').select('*').eq('user_id', uid).order('sort_order'),
-    sb.from('weekly_goals').select('*').eq('user_id', uid).order('sort_order'),
-    sb.from('goal_checks').select('*').eq('user_id', uid),
-    sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false })
-  ]);
-  if (r1.error?.status === 401 || r2.error?.status === 401) { doSignOut(); return; }
-  const yg = r1.data || [], mg = r2.data || [], wg = r3.data || [], chk = r4.data || [], logs = r5.data || [];
-  yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
-  monthlyData = {};
-  mg.forEach(m => {
-    if (!monthlyData[m.month_key]) monthlyData[m.month_key] = [];
-    const weeks = wg.filter(w => w.monthly_goal_id === m.id).map(w => {
-      const wc = {}; chk.filter(c => c.goal_id === w.id && c.goal_type === 'weekly').forEach(c => wc[c.checked_date] = 'done');
-      const wl = logs.filter(l => l.goal_id === w.id).map(l => ({ date: l.log_date, memo: l.memo }));
-      return { id: w.id, name: w.name, note: w.note || '', checks: wc, logs: wl };
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { doSignOut(); return; }
+  currentUser = session.user;
+  const uid = session.user.id;
+  const token = session.access_token;
+  const base = SUPA_URL + '/rest/v1/';
+  const h = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token };
+  try {
+    const [d1, d2, d3, d4, d5] = await Promise.all([
+      fetch(base + 'year_goals?select=*&user_id=eq.' + uid + '&order=created_at', { headers: h }).then(r => r.json()),
+      fetch(base + 'monthly_goals?select=*&user_id=eq.' + uid + '&order=sort_order', { headers: h }).then(r => r.json()),
+      fetch(base + 'weekly_goals?select=*&user_id=eq.' + uid + '&order=sort_order', { headers: h }).then(r => r.json()),
+      fetch(base + 'goal_checks?select=*&user_id=eq.' + uid, { headers: h }).then(r => r.json()),
+      fetch(base + 'goal_logs?select=*&user_id=eq.' + uid + '&order=created_at.desc', { headers: h }).then(r => r.json()),
+    ]);
+    if (!Array.isArray(d1)) { if (d1?.code === 'PGRST301' || d1?.message?.includes('JWT')) { doSignOut(); return; } throw new Error('bad response'); }
+    const yg = Array.isArray(d1) ? d1 : [], mg = Array.isArray(d2) ? d2 : [], wg = Array.isArray(d3) ? d3 : [],
+          chk = Array.isArray(d4) ? d4 : [], logs = Array.isArray(d5) ? d5 : [];
+    yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
+    monthlyData = {};
+    mg.forEach(m => {
+      if (!monthlyData[m.month_key]) monthlyData[m.month_key] = [];
+      const weeks = wg.filter(w => w.monthly_goal_id === m.id).map(w => {
+        const wc = {}; chk.filter(c => c.goal_id === w.id && c.goal_type === 'weekly').forEach(c => wc[c.checked_date] = 'done');
+        const wl = logs.filter(l => l.goal_id === w.id).map(l => ({ date: l.log_date, memo: l.memo }));
+        return { id: w.id, name: w.name, note: w.note || '', checks: wc, logs: wl };
+      });
+      const mc = {}; chk.filter(c => c.goal_id === m.id && c.goal_type === 'repeat').forEach(c => mc[c.checked_date] = 'done');
+      const ml = logs.filter(l => l.goal_id === m.id).map(l => ({ date: l.log_date, memo: l.memo }));
+      monthlyData[m.month_key].push({ id: m.id, name: m.name, goalType: m.goal_type, logType: m.log_type, color: m.color, repeatUnit: m.repeat_unit, repeatCount: m.repeat_count, collapsed: m.collapsed || false, checks: mc, logs: ml, weeks });
     });
-    const mc = {}; chk.filter(c => c.goal_id === m.id && c.goal_type === 'repeat').forEach(c => mc[c.checked_date] = 'done');
-    const ml = logs.filter(l => l.goal_id === m.id).map(l => ({ date: l.log_date, memo: l.memo }));
-    monthlyData[m.month_key].push({ id: m.id, name: m.name, goalType: m.goal_type, logType: m.log_type, color: m.color, repeatUnit: m.repeat_unit, repeatCount: m.repeat_count, collapsed: m.collapsed || false, checks: mc, logs: ml, weeks });
-  });
+  } catch(e) { /* network error — keep existing data intact */ }
 }
 function getMg(mk, id) { return (monthlyData[mk] || []).find(m => m.id === id); }
 
