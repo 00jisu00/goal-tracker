@@ -356,12 +356,21 @@ async function showApp(session) {
   document.getElementById('user-avatar').textContent = (name[0] || 'U').toUpperCase();
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-email').textContent = email;
+  const { data: { session: s } } = await sb.auth.getSession();
+  if (s) currentUser = s.user;
   await loadAllData();
   renderCheck();
   updateFab();
-  if (!yearGoals.length && !Object.keys(monthlyData).length) {
-    setTimeout(async () => { await loadAllData(); renderCurrentPage(); }, 3000);
-  }
+  retryIfEmpty(0);
+}
+function retryIfEmpty(attempt) {
+  if (attempt >= 5) return;
+  if (yearGoals.length || Object.keys(monthlyData).length) return;
+  setTimeout(async () => {
+    await loadAllData();
+    renderCurrentPage();
+    retryIfEmpty(attempt + 1);
+  }, 2000);
 }
 function hideApp() {
   currentUser = null;
@@ -447,12 +456,13 @@ async function loadAllData() {
   if (!currentUser) return;
   const uid = currentUser.id;
   const [r1, r2, r3, r4, r5] = await Promise.all([
-    sbCall(sb.from('year_goals').select('*').eq('user_id', uid).order('created_at')),
-    sbCall(sb.from('monthly_goals').select('*').eq('user_id', uid).order('sort_order')),
-    sbCall(sb.from('weekly_goals').select('*').eq('user_id', uid).order('sort_order')),
-    sbCall(sb.from('goal_checks').select('*').eq('user_id', uid)),
-    sbCall(sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false }))
+    sb.from('year_goals').select('*').eq('user_id', uid).order('created_at'),
+    sb.from('monthly_goals').select('*').eq('user_id', uid).order('sort_order'),
+    sb.from('weekly_goals').select('*').eq('user_id', uid).order('sort_order'),
+    sb.from('goal_checks').select('*').eq('user_id', uid),
+    sb.from('goal_logs').select('*').eq('user_id', uid).order('created_at', { ascending: false })
   ]);
+  if (r1.error?.status === 401 || r2.error?.status === 401) { doSignOut(); return; }
   const yg = r1.data || [], mg = r2.data || [], wg = r3.data || [], chk = r4.data || [], logs = r5.data || [];
   yearGoals = yg.map(r => ({ id: r.id, text: r.text, note: r.note || '', done: r.done }));
   monthlyData = {};
