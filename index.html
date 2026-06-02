@@ -637,7 +637,12 @@ function renderCheck() {
       }
     }
   });
-  if (!html) html = '<div class="empty-msg">오늘의 목표가 없어요<br>월간 설정에서 목표를 추가하세요</div>';
+  if (!html) {
+    const prevMk = (function(mk){ const [y,m]=mk.split('-').map(Number); const d=new Date(y,m-2,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })(CMK);
+    const prevHas = (monthlyData[prevMk]||[]).length;
+    const prevLabel = prevHas ? parseInt(prevMk.split('-')[1]) + '월 목표는 월간설정 탭에서 확인하세요' : '';
+    html = '<div class="empty-msg">이번 달 목표가 없어요<br>월간설정에서 목표를 추가하세요' + (prevHas ? '<br><br><span style="font-size:11px">' + prevLabel + '</span>' : '') + '</div>';
+  }
   document.getElementById('check-list').innerHTML = html;
 }
 
@@ -1025,7 +1030,11 @@ function goPage(p, el) {
   document.getElementById('pg-' + p).classList.add('on');
   updateFab();
   if (p === 'year') renderYear();
-  else if (p === 'monthly') { selMonth = CMK; renderMonthly(); }
+  else if (p === 'monthly') {
+    const latest = MONTHS.slice().reverse().find(m => (monthlyData[m] || []).length);
+    selMonth = latest || CMK;
+    renderMonthly();
+  }
   else if (p === 'check') renderCheck();
   else if (p === 'review') renderReview();
 }
